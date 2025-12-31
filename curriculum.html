@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Swarm Engineer Curriculum</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f3f4f6; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            height: 250px;
+        }
+
+        .phase-card-active {
+            border-left: 4px solid #0ea5e9; /* sky-500 */
+            background-color: #f0f9ff; /* sky-50 */
+        }
+        
+        .checkbox-custom {
+            appearance: none;
+            background-color: #fff;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 1.15em;
+            height: 1.15em;
+            border: 2px solid #cbd5e1;
+            border-radius: 0.15em;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+        }
+
+        .checkbox-custom::before {
+            content: "";
+            width: 0.65em;
+            height: 0.65em;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em white;
+            background-color: white;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+
+        .checkbox-custom:checked {
+            background-color: #0ea5e9;
+            border-color: #0ea5e9;
+        }
+
+        .checkbox-custom:checked::before {
+            transform: scale(1);
+        }
+    </style>
+    <!-- Chosen Palette: "Sky & Slate" - Professional, clean, academic blue tones (Sky-500/Slate-800) for high readability. -->
+    <!-- Application Structure Plan:
+         1. Sidebar Navigation: Vertical list of the 5 Phases from the report.
+         2. Main Content Area: Dynamic content loading for the selected phase.
+            - Header: Title, Goal, Estimated Time (inferred).
+            - Modules: List of specific topics (e.g., "ROS 2 Basics") with checkboxes.
+            - Capstone Project: The specific task mentioned in the report (e.g., "TurtleBot3 Nav").
+            - Toolbox: Software/Hardware stack for that specific phase.
+         3. Dashboard/Overview: Shows overall progress via Chart.js.
+    -->
+    <!-- Visualization & Content Choices:
+         - Progress Doughnut Chart: Visualizes completion % of the curriculum.
+         - Interactive Checklists: Allows user to "mark as done" to track learning.
+         - Resource Cards: Display tools like Gazebo/OpenVLA with brief descriptions.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center z-50">
+        <h1 class="font-bold text-lg"><i class="fas fa-robot mr-2 text-sky-400"></i>Swarm Engineer</h1>
+        <button id="mobile-menu-btn" class="text-white focus:outline-none">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="bg-white border-r border-slate-200 w-full md:w-80 flex-shrink-0 flex flex-col transition-transform transform -translate-x-full md:translate-x-0 fixed md:relative h-full z-40">
+        <div class="p-6 border-b border-slate-100 hidden md:block">
+            <h1 class="font-bold text-xl text-slate-900 flex items-center">
+                <i class="fas fa-robot mr-2 text-sky-500"></i>
+                Swarm Engineer
+            </h1>
+            <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">Curriculum Tracker</p>
+        </div>
+
+        <!-- Progress Overview Mini-Dashboard -->
+        <div class="p-6 bg-slate-50 border-b border-slate-100">
+            <div class="flex justify-between items-end mb-2">
+                <span class="text-xs font-bold text-slate-500 uppercase">Overall Progress</span>
+                <span id="progress-text" class="text-sky-600 font-bold text-lg">0%</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-2.5">
+                <div id="progress-bar" class="bg-sky-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <div class="mt-4 flex justify-center">
+                 <button onclick="app.resetProgress()" class="text-xs text-slate-400 hover:text-red-500 transition underline">Reset Progress</button>
+            </div>
+        </div>
+
+        <!-- Phase Navigation -->
+        <nav class="flex-1 overflow-y-auto py-4 space-y-1" id="phase-nav">
+            <!-- Populated by JS -->
+        </nav>
+
+        <div class="p-4 border-t border-slate-100 text-center text-xs text-slate-400">
+             Based on Report 80b42dd9
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+        <!-- Scrollable Content -->
+        <div id="main-content" class="flex-1 overflow-y-auto p-6 md:p-10 space-y-8">
+            <!-- Dynamic Content Injected Here -->
+        </div>
+    </main>
+
+    <!-- JS Logic -->
+    <script>
+        // --- DATA SOURCE (Based on Section 5 of Source Report) ---
+        const curriculum = [
+            {
+                id: 'intro',
+                title: 'Curriculum Overview',
+                icon: 'fas fa-map',
+                summary: 'Welcome to the roadmap for building Autonomous Command Centers (ACC). This path takes you from basic Linux commands to deploying "Wolf Pack" swarms on military-grade hardware.',
+                modules: [], 
+                type: 'dashboard'
+            },
+            {
+                id: 'phase1',
+                title: 'Phase 1: The Foundation',
+                subtitle: 'Simulation & Single Agent',
+                icon: 'fas fa-cube',
+                goal: 'Control a single robot in a physics simulator.',
+                description: 'The entry point for professional robotics. You will master the Linux terminal, install the ROS 2 middleware, and deploy your first virtual robot.',
+                modules: [
+                    { id: 'p1_linux', text: 'Master Ubuntu Linux (22.04/24.04) & Terminal', desc: 'Navigation, permissions, package management.' },
+                    { id: 'p1_ros', text: 'Install ROS 2 (Humble or Jazzy)', desc: 'Understanding workspace setup (colcon build) and sourcing.' },
+                    { id: 'p1_rclpy', text: 'Write Python Scripts (rclpy)', desc: 'Create Publisher/Subscriber nodes.' },
+                    { id: 'p1_sim', text: 'Setup Gazebo Harmonic or Isaac Sim', desc: 'Physics simulation environment.' },
+                    { id: 'p1_nav', text: 'Implement Nav2 Stack', desc: 'Autonomous navigation and mapping.' }
+                ],
+                project: {
+                    title: 'Project: TurtleBot3 Autonomous Patrol',
+                    desc: 'Deploy a standard TurtleBot3 model in Gazebo. Write a Python script to make it autonomously navigate to a specific coordinate on a map using Nav2.'
+                },
+                toolbox: [
+                    { name: 'Ubuntu 22.04', type: 'OS' },
+                    { name: 'ROS 2 Humble', type: 'Middleware' },
+                    { name: 'Gazebo Harmonic', type: 'Simulator' },
+                    { name: 'TurtleBot3', type: 'Robot Model' }
+                ],
+                resources: [
+                    { name: 'ROS 2 Documentation', url: 'https://docs.ros.org' },
+                    { name: 'Nav2 Documentation', url: 'https://navigation.ros.org' }
+                ]
+            },
+            {
+                id: 'phase2',
+                title: 'Phase 2: Perception',
+                subtitle: 'Context Awareness & VLAs',
+                icon: 'fas fa-eye',
+                goal: 'Integrate Vision-Language Models to understand the environment.',
+                description: 'Moving beyond simple obstacle avoidance to semantic understanding. You will connect camera feeds to AI models that can "see" and "reason".',
+                modules: [
+                    { id: 'p2_vla', text: 'Study OpenVLA / LLaVA', desc: 'Vision-Language-Action models mapping pixels to robot actions.' },
+                    { id: 'p2_bridge', text: 'Create ROS 2 Bridge Node', desc: 'Connect camera topics to AI model inputs.' },
+                    { id: 'p2_sam', text: 'Implement GroundedSAM', desc: 'Open-vocabulary object detection for segmentation.' },
+                    { id: 'p2_tf2', text: 'Master TF2 (Transforms)', desc: 'Convert camera pixel coordinates to global map coordinates.' },
+                    { id: 'p2_edge', text: 'Edge Deployment Basics', desc: 'Optimizing models for Jetson Orin.' }
+                ],
+                project: {
+                    title: 'Project: "Find the Red Backpack"',
+                    desc: 'Create a system where a text command "Find the red backpack" triggers the robot to scan the room, identify the object using GroundedSAM, and navigate to it.'
+                },
+                toolbox: [
+                    { name: 'OpenVLA', type: 'AI Model' },
+                    { name: 'GroundedSAM', type: 'CV Model' },
+                    { name: 'NVIDIA Jetson', type: 'Hardware' },
+                    { name: 'TF2', type: 'Library' }
+                ],
+                resources: [
+                    { name: 'OpenVLA GitHub', url: 'https://github.com/openvla/openvla' }
+                ]
+            },
+            {
+                id: 'phase3',
+                title: 'Phase 3: Swarm Intelligence',
+                subtitle: 'Multi-Agent Control',
+                icon: 'fas fa-users',
+                goal: 'Coordinate multiple robots to act as a group ("Wolf Pack").',
+                description: 'Transition from controlling one robot to orchestrating a swarm. Focus on decentralized algorithms and behavior trees.',
+                modules: [
+                    { id: 'p3_bt', text: 'Master Behavior Trees', desc: 'Use BehaviorTree.CPP or py_trees over simple state machines.' },
+                    { id: 'p3_groot', text: 'Visualize with Groot2', desc: 'Graphical design of robot behaviors.' },
+                    { id: 'p3_boids', text: 'Implement Boids Algorithm', desc: 'Separation, Alignment, Cohesion logic.' },
+                    { id: 'p3_lead', text: 'Leader-Follower Logic', desc: 'Formation control around an "Alpha" agent.' },
+                    { id: 'p3_marl', text: 'Multi-Agent RL (PettingZoo)', desc: 'Training agents in predator-prey scenarios.' }
+                ],
+                project: {
+                    title: 'Project: Wolf Pack Simulation',
+                    desc: 'Simulate 10 robots in ROS2Swarm or Colosseum. Implement a "Search and Surround" behavior where they autonomously find a target and encircle it.'
+                },
+                toolbox: [
+                    { name: 'BehaviorTree.CPP', type: 'Framework' },
+                    { name: 'Groot2', type: 'Tool' },
+                    { name: 'PettingZoo', type: 'RL Library' },
+                    { name: 'ROS2Swarm', type: 'Simulator' }
+                ],
+                resources: [
+                    { name: 'BehaviorTree.dev', url: 'https://www.behaviortree.dev' }
+                ]
+            },
+            {
+                id: 'phase4',
+                title: 'Phase 4: C2 Integration',
+                subtitle: 'Command & Control',
+                icon: 'fas fa-network-wired',
+                goal: 'Build the interface where humans and machines collaborate.',
+                description: 'Connecting the swarm to military-standard situational awareness tools and modern LLM interfaces.',
+                modules: [
+                    { id: 'p4_tak', text: 'Setup TAK Server', desc: 'FreeTAKServer or similar for tactical map data.' },
+                    { id: 'p4_cot', text: 'Write CoT Bridge (pycot)', desc: 'Convert robot GPS to Cursor-on-Target XML XML.' },
+                    { id: 'p4_dash', text: 'Build Web Dashboard', desc: 'React/Streamlit interface for CCTV/Robot status.' },
+                    { id: 'p4_llm', text: 'Integrate LLM Commander', desc: 'Translate "Secure Sector 4" text to waypoints.' }
+                ],
+                project: {
+                    title: 'Project: The Tactical Map',
+                    desc: 'Make your simulated robots appear as "Friendly Ground Units" on an ATAK map. Allow a user to issue commands via a chat interface powered by an LLM.'
+                },
+                toolbox: [
+                    { name: 'FreeTAKServer', type: 'Server' },
+                    { name: 'pycot', type: 'Library' },
+                    { name: 'React', type: 'Frontend' },
+                    { name: 'Llama 3', type: 'LLM' }
+                ],
+                resources: [
+                    { name: 'CivTAK', url: 'https://www.civtak.org' }
+                ]
+            },
+            {
+                id: 'phase5',
+                title: 'Phase 5: Hardware',
+                subtitle: 'Physical Deployment',
+                icon: 'fas fa-microchip',
+                goal: 'Port code to physical quadruped robots.',
+                description: 'The final frontier. Dealing with real-world physics, battery constraints, and network latency on ruggedized hardware.',
+                modules: [
+                    { id: 'p5_plat', text: 'Select Platform', desc: 'Unitree Go2 (Edu) or Deep Robotics X20.' },
+                    { id: 'p5_sdk', text: 'Master Robot SDKs', desc: 'unitree_sdk2 or Deep Robotics C++ API.' },
+                    { id: 'p5_comp', text: 'Integrate Jetson AGX Orin', desc: 'Mounting and networking the "Brain" to the robot.' },
+                    { id: 'p5_net', text: 'Reliable Comms (DDS/QoS)', desc: 'Tuning middleware for real-world WiFi/5G.' }
+                ],
+                project: {
+                    title: 'Project: Real-World "Wolf"',
+                    desc: 'Deploy the "Find Red Backpack" VLA stack onto a physical quadruped. Ensure it runs strictly on onboard compute (Edge) without a laptop tether.'
+                },
+                toolbox: [
+                    { name: 'Unitree Go2', type: 'Robot' },
+                    { name: 'Jetson AGX Orin', type: 'Compute' },
+                    { name: 'Ethernet/UDP', type: 'Comms' }
+                ],
+                resources: []
+            }
+        ];
+
+        // --- APP LOGIC ---
+        const app = {
+            state: {
+                currentPhaseId: 'intro',
+                completedModules: []
+            },
+
+            init: function() {
+                // Load progress from localStorage
+                const saved = localStorage.getItem('swarm_progress');
+                if (saved) {
+                    this.state.completedModules = JSON.parse(saved);
+                }
+
+                this.renderSidebar();
+                this.renderContent();
+                this.updateOverallProgress();
+
+                // Mobile menu toggle
+                document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+                    document.getElementById('sidebar').classList.toggle('-translate-x-full');
+                });
+            },
+
+            setPhase: function(id) {
+                this.state.currentPhaseId = id;
+                this.renderSidebar(); // Update active state
+                this.renderContent();
+                
+                // Close mobile menu on select
+                if (window.innerWidth < 768) {
+                    document.getElementById('sidebar').classList.add('-translate-x-full');
+                }
+            },
+
+            toggleModule: function(moduleId) {
+                const index = this.state.completedModules.indexOf(moduleId);
+                if (index === -1) {
+                    this.state.completedModules.push(moduleId);
+                } else {
+                    this.state.completedModules.splice(index, 1);
+                }
+                
+                // Save
+                localStorage.setItem('swarm_progress', JSON.stringify(this.state.completedModules));
+                
+                // Update UI
+                this.updatePhaseProgress();
+                this.updateOverallProgress();
+            },
+
+            resetProgress: function() {
+                if(confirm('Reset all progress tracking?')) {
+                    this.state.completedModules = [];
+                    localStorage.removeItem('swarm_progress');
+                    this.renderSidebar();
+                    this.renderContent();
+                    this.updateOverallProgress();
+                }
+            },
+
+            renderSidebar: function() {
+                const nav = document.getElementById('phase-nav');
+                nav.innerHTML = curriculum.map(phase => {
+                    const isActive = phase.id === this.state.currentPhaseId;
+                    return `
+                        <button onclick="app.setPhase('${phase.id}')" class="w-full text-left px-6 py-3 flex items-center group transition-colors ${isActive ? 'phase-card-active text-sky-700' : 'text-slate-600 hover:bg-slate-50'}">
+                            <div class="w-8 flex justify-center mr-2">
+                                <i class="${phase.icon} ${isActive ? 'text-sky-500' : 'text-slate-400 group-hover:text-sky-400'}"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-sm">${phase.title}</div>
+                                ${phase.subtitle ? `<div class="text-xs text-slate-400">${phase.subtitle}</div>` : ''}
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+            },
+
+            renderContent: function() {
+                const container = document.getElementById('main-content');
+                const phase = curriculum.find(p => p.id === this.state.currentPhaseId);
+
+                if (phase.type === 'dashboard') {
+                    this.renderDashboard(container, phase);
+                    return;
+                }
+
+                // Render Phase Detail
+                const completedCount = phase.modules.filter(m => this.state.completedModules.includes(m.id)).length;
+                const progressPercent = Math.round((completedCount / phase.modules.length) * 100);
+
+                container.innerHTML = `
+                    <!-- Header -->
+                    <div class="mb-8 border-b border-slate-200 pb-6">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-bold uppercase tracking-wide">Phase ${phase.id.replace('phase','')}</span>
+                            <h2 class="text-3xl font-bold text-slate-900">${phase.subtitle}</h2>
+                        </div>
+                        <p class="text-slate-600 text-lg mb-4 max-w-3xl">${phase.description}</p>
+                        <div class="bg-white p-4 rounded-lg border border-slate-200 inline-block shadow-sm">
+                            <strong class="text-slate-800">Phase Goal:</strong> <span class="text-slate-600">${phase.goal}</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Left Col: Modules & Checklist -->
+                        <div class="lg:col-span-2 space-y-8">
+                            
+                            <!-- Progress Bar for this Phase -->
+                            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                <div class="flex justify-between items-end mb-2">
+                                    <h3 class="font-bold text-slate-800 text-lg">Learning Modules</h3>
+                                    <span class="text-sm font-bold text-sky-600">${progressPercent}% Complete</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-2 mb-6">
+                                    <div class="bg-sky-500 h-2 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    ${phase.modules.map(mod => `
+                                        <div class="flex items-start p-3 rounded hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+                                            <div class="flex-shrink-0 pt-1">
+                                                <input type="checkbox" 
+                                                    class="checkbox-custom" 
+                                                    id="${mod.id}" 
+                                                    ${this.state.completedModules.includes(mod.id) ? 'checked' : ''} 
+                                                    onchange="app.toggleModule('${mod.id}')">
+                                            </div>
+                                            <div class="ml-4">
+                                                <label for="${mod.id}" class="text-sm font-semibold text-slate-800 cursor-pointer block select-none">${mod.text}</label>
+                                                <p class="text-xs text-slate-500 mt-1">${mod.desc}</p>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Capstone Project -->
+                            <div class="bg-slate-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+                                <div class="absolute top-0 right-0 p-4 opacity-10">
+                                    <i class="fas fa-flag-checkered text-9xl"></i>
+                                </div>
+                                <div class="relative z-10">
+                                    <div class="text-xs font-bold text-sky-400 uppercase tracking-widest mb-2">Capstone Project</div>
+                                    <h3 class="text-xl font-bold mb-3">${phase.project.title}</h3>
+                                    <p class="text-slate-300 text-sm leading-relaxed">${phase.project.desc}</p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Right Col: Toolbox & Resources -->
+                        <div class="space-y-6">
+                            <!-- Toolbox -->
+                            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                                <h3 class="font-bold text-slate-800 mb-4 flex items-center">
+                                    <i class="fas fa-toolbox text-slate-400 mr-2"></i> Required Toolbox
+                                </h3>
+                                <div class="space-y-3">
+                                    ${phase.toolbox.map(tool => `
+                                        <div class="flex items-center justify-between text-sm p-2 bg-slate-50 rounded border border-slate-100">
+                                            <span class="font-medium text-slate-700">${tool.name}</span>
+                                            <span class="text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">${tool.type}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- External Links -->
+                            ${phase.resources.length > 0 ? `
+                                <div class="bg-sky-50 p-5 rounded-xl border border-sky-100">
+                                    <h3 class="font-bold text-sky-800 mb-3 text-sm uppercase tracking-wide">Key Resources</h3>
+                                    <ul class="space-y-2">
+                                        ${phase.resources.map(res => `
+                                            <li>
+                                                <a href="${res.url}" target="_blank" class="flex items-center text-sm text-sky-600 hover:text-sky-800 hover:underline">
+                                                    <i class="fas fa-external-link-alt text-xs mr-2"></i>
+                                                    ${res.name}
+                                                </a>
+                                            </li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderDashboard: function(container, phase) {
+                // Calculate total stats
+                const allModules = curriculum.flatMap(p => p.modules || []);
+                const total = allModules.length;
+                const completed = this.state.completedModules.length;
+                const percentage = Math.round((completed/total)*100) || 0;
+
+                container.innerHTML = `
+                    <div class="max-w-4xl mx-auto text-center space-y-8 pt-10">
+                        <div class="space-y-4">
+                            <h2 class="text-4xl font-bold text-slate-900">Start Your Journey</h2>
+                            <p class="text-lg text-slate-600 max-w-2xl mx-auto">${phase.summary}</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                            <div class="text-left space-y-4">
+                                <h3 class="text-2xl font-bold text-slate-800">Your Progress</h3>
+                                <p class="text-slate-500">Track your skills across all 5 phases of development.</p>
+                                <div class="flex space-x-8">
+                                    <div>
+                                        <div class="text-3xl font-bold text-sky-600">${completed}</div>
+                                        <div class="text-xs text-slate-500 uppercase font-bold">Modules Done</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-3xl font-bold text-slate-800">${total}</div>
+                                        <div class="text-xs text-slate-500 uppercase font-bold">Total Modules</div>
+                                    </div>
+                                </div>
+                                <button onclick="app.setPhase('phase1')" class="mt-4 px-6 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 transition shadow-lg shadow-sky-200">
+                                    Go to Phase 1
+                                </button>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                            <div class="p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition">
+                                <div class="text-sky-500 text-xl mb-3"><i class="fas fa-book"></i></div>
+                                <h4 class="font-bold text-slate-900">Theory First</h4>
+                                <p class="text-sm text-slate-500 mt-2">Understand the math behind Swarm Intelligence (Boids, Voronoi) before writing code.</p>
+                            </div>
+                            <div class="p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition">
+                                <div class="text-sky-500 text-xl mb-3"><i class="fas fa-laptop-code"></i></div>
+                                <h4 class="font-bold text-slate-900">Simulation</h4>
+                                <p class="text-sm text-slate-500 mt-2">Master ROS 2 and Gazebo. If it doesn't work in sim, it won't work in reality.</p>
+                            </div>
+                            <div class="p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition">
+                                <div class="text-sky-500 text-xl mb-3"><i class="fas fa-shield-alt"></i></div>
+                                <h4 class="font-bold text-slate-900">Military Standard</h4>
+                                <p class="text-sm text-slate-500 mt-2">Learn industry standards like TAK and CoT to make your systems interoperable.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Render Chart
+                setTimeout(() => {
+                    const ctx = document.getElementById('progressChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Completed', 'Remaining'],
+                            datasets: [{
+                                data: [completed, total - completed],
+                                backgroundColor: ['#0ea5e9', '#f1f5f9'],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '75%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: false }
+                            }
+                        },
+                        plugins: [{
+                            id: 'textCenter',
+                            beforeDraw: function(chart) {
+                                var width = chart.width, height = chart.height, ctx = chart.ctx;
+                                ctx.restore();
+                                var fontSize = (height / 114).toFixed(2);
+                                ctx.font = "bold " + fontSize + "em sans-serif";
+                                ctx.textBaseline = "middle";
+                                ctx.fillStyle = "#0f172a";
+                                var text = percentage + "%",
+                                    textX = Math.round((width - ctx.measureText(text).width) / 2),
+                                    textY = height / 2;
+                                ctx.fillText(text, textX, textY);
+                                ctx.save();
+                            }
+                        }]
+                    });
+                }, 100);
+            },
+
+            updatePhaseProgress: function() {
+                // If we are looking at the Dashboard, update chart. If Phase view, update bar.
+                const phase = curriculum.find(p => p.id === this.state.currentPhaseId);
+                if(phase.type === 'dashboard') {
+                    this.renderContent(); // Full re-render for dashboard chart
+                } else {
+                    this.renderContent(); // Re-render phase view to update checklist and bar
+                }
+            },
+
+            updateOverallProgress: function() {
+                const allModules = curriculum.flatMap(p => p.modules || []);
+                const completed = this.state.completedModules.length;
+                const percent = Math.round((completed / allModules.length) * 100);
+                
+                document.getElementById('progress-bar').style.width = `${percent}%`;
+                document.getElementById('progress-text').innerText = `${percent}%`;
+            }
+        };
+
+        // Start
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
